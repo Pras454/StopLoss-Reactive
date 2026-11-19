@@ -1,0 +1,19 @@
+# Secrets — never commit
+*-keypair.json
+*.pem
+.env
+.env.*
+
+# Foundry build artifacts
+cache/
+out/
+broadcast/
+
+# Node / OS
+node_modules/
+.DS_Store
+
+# Demo video intermediates (keep the final mp4 + scripts)
+demo-video/work/
+demo-video/audio/
+demo-video/slides/

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StopLoss — Reactive Omni Buildathon (Track 1)</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --card-2: #1e222c; --border: #2a2f3a;
+    --text: #e8eaf0; --muted: #9aa3b2; --accent: #4f8cff; --accent-2: #37c978;
+    --warn: #f5a524; --danger: #f2555a; --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+  a { color: var(--accent); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;
+    justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 1.6rem; margin: 0; }
+  .subtitle { color: var(--muted); margin: 4px 0 0; max-width: 560px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .field { flex: 1 1 160px; display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  input, button { font: inherit; border-radius: 8px; }
+  input { background: var(--card-2); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 10px; width: 100%; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { cursor: pointer; border: 1px solid var(--border); background: var(--card-2);
+    color: var(--text); padding: 9px 14px; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.55; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  button.small { padding: 5px 10px; font-size: 0.85rem; }
+  .status { min-height: 1.4em; font-size: 0.95rem; margin: 0 0 12px; }
+  .status.info { color: var(--muted); }
+  .status.success { color: var(--accent-2); }
+  .status.error { color: var(--danger); }
+  .banner { background: #2a2110; border: 1px solid var(--warn); color: #ffd88a;
+    border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; }
+  .order { border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+    margin-bottom: 10px; background: var(--card-2); }
+  .order .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+  .order .amount { font-size: 1.15rem; font-weight: 600; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem;
+    border: 1px solid var(--border); }
+  .pill.active { color: var(--accent-2); border-color: var(--accent-2); }
+  .pill.inactive { color: var(--muted); }
+  .pill.armed { color: var(--warn); border-color: var(--warn); }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85rem;
+    word-break: break-all; }
+  .muted { color: var(--muted); font-size: 0.9rem; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 0.95rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .txline { margin-top: 8px; }
+  .big-price { font-size: 1.6rem; font-weight: 700; }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+  @media (max-width: 560px) { h1 { font-size: 1.3rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>StopLoss</h1>
+      <p class="subtitle">Reactive stop-loss on the real Uniswap V3 WETH/USDC pool
+        (Base Sepolia). Deposit WETH, set a stop price — a reactive contract on
+        Lasna watches the pool's Swap events and, the moment the price drops below
+        your stop, sells your WETH for USDC. No oracle, no off-chain bot.</p>
+    </div>
+    <div>
+      <button id="connectBtn" class="primary">Connect MetaMask</button>
+      <p id="accountLine" class="muted" style="margin:8px 0 0; text-align:right;"></p>
+    </div>
+  </header>
+
+  <p id="statusLine" class="status info">Live data loads without a wallet. Connect to deposit WETH and create stop-loss orders. The app switches MetaMask to Base Sepolia (chain ID 84532).</p>
+
+  <div class="card">
+    <h2>Live — pool price &amp; reactive contract</h2>
+    <p style="margin:0 0 8px;">WETH price (Uniswap V3 pool, Base Sepolia):
+      <span id="poolPrice" class="big-price">—</span>
+      <span id="poolPriceNote" class="muted"></span></p>
+    <dl class="kv">
+      <dt>sqrtPriceX96</dt><dd id="sqrtP" class="mono">—</dd>
+      <dt>Reactive contract (Lasna)</dt><dd><span id="rscArmed" class="pill inactive">—</span>
+        <span id="rscDetail" class="muted"></span></dd>
+      <dt>Armed threshold</dt><dd id="rscThreshold">—</dd>
+      <dt>Armed order</dt><dd id="rscOrder">—</dd>
+    </dl>
+    <p style="margin:12px 0 0;"><button id="refreshLiveBtn" class="small">Refresh live data</button>
+      <span id="liveUpdated" class="muted"></span></p>
+    <p class="muted">Testnet pool price is thin and stale — it only moves when someone
+      trades in the pool. The demo uses a tight stop just below the live price.</p>
+  </div>
+
+  <div class="card">
+    <h2>Your balances (Base Sepolia)</h2>
+    <dl class="kv">
+      <dt>ETH (gas)</dt><dd id="ethBalance">—</dd>
+      <dt>WETH (wallet)</dt><dd id="wethBalance">—</dd>
+      <dt>USDC (wallet)</dt><dd id="usdcBalance">—</dd>
+      <dt>WETH in vault</dt><dd id="vaultBalance">—</dd>
+    </dl>
+    <p class="muted">Need Base Sepolia ETH? Bridge Sepolia ETH via the
+      <a href="https://superbridge.app" target="_blank" rel="noopener">Superbridge</a>
+      or claim it from a Base Sepolia faucet, then wrap it below.</p>
+  </div>
+
+  <div class="card">
+    <h2>1. Wrap ETH → WETH</h2>
+    <div class="row">
+      <div class="field">
+        <label for="wrapAmount">Amount (ETH)</label>
+        <input id="wrapAmount" type="number" min="0" step="0.000001" placeholder="e.g. 0.005" />
+      </div>
+    </div>
+    <p style="margin:12px 0 0;"><button id="wrapBtn" class="primary" disabled>Wrap ETH → WETH</button></p>
+    <p id="wrapResult" class="txline muted"></p>
+  </div>
+
+  <div class="card">
+    <h2>2. Approve vault &amp; deposit WETH</h2>
+    <div class="row">
+      <div class="field">
+        <label for="depositAmount">Amount (WETH)</label>
+        <input id="depositAmount" type="number" min="0" step="0.000001" placeholder="e.g. 0.003" />
+      </div>
+    </div>
+    <p style="margin:12px 0 0;" class="row">
+      <button id="approveBtn" disabled>Approve vault (exact amount)</button>
+      <button id="depositBtn" class="primary" disabled>Deposit WETH</button>
+      <button id="withdrawBtn" disabled>Withdraw WETH</button>
+    </p>
+    <p id="depositResult" class="txline muted"></p>
+    <p class="muted">Approval is for the exact amount you enter — never unlimited.
+      Withdrawing returns unallocated vault WETH to your wallet.</p>
+  </div>
+
+  <div class="card">
+    <h2>3. Create stop-loss order</h2>
+    <div class="row">
+      <div class="field">
+        <label for="orderAmount">Amount (WETH, from vault balance)</label>
+        <input id="orderAmount" type="number" min="0" step="0.000001" placeholder="e.g. 0.003" />
+      </div>
+      <div class="field">
+        <label for="stopPrice">Stop price (USD per WETH)</label>
+        <input id="stopPrice" type="number" min="0" step="0.01" placeholder="e.g. 26796" />
+      </div>
+    </div>
+    <p id="thresholdPreview" class="muted" style="margin:8px 0 0;">Enter a stop price to see the on-chain threshold.</p>
+    <p style="margin:12px 0 0;"><button id="createOrderBtn" class="primary" disabled>Create order</button></p>
+    <p id="orderResult" class="txline muted"></p>
+    <div class="banner" style="margin:12px 0 0;">
+      After you create an order, the stop must be <strong>armed</strong> on the reactive
+      contract (Lasna) — that is an owner step done from the deployer, not from this UI.
+      One stop can be armed at a time. See the demo flow in
+      <a href="../DEMO.md" target="_blank" rel="noopener">DEMO.md</a>.
+      Once armed, the reactive contract itself catches the price crossing and the
+      callback sells your WETH for USDC.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Your orders</h2>
+    <p><button id="refreshOrdersBtn" class="small" disabled>Refresh orders</button>
+      <span id="orderCount" class="muted"></span></p>
+    <div id="orderList"><p class="muted">Connect your wallet to see your orders.</p></div>
+  </div>
+
+  <footer>
+    Reactive Omni Buildathon — Track 1 "Every Second Counts" (DoraHacks).
+    Testnet only, no real funds. Vault:
+    <a href="https://sepolia.basescan.org/address/0xcfc07ac67a31f72bca520a999d701a14642bd01c" target="_blank" rel="noopener">Basescan</a>
+    · Reactive contract:
+    <a href="https://lasna.reactscan.net/address/0xcFc07ac67a31f72BCA520a999D701A14642Bd01C" target="_blank" rel="noopener">Reactscan</a>
+    · Pool:
+    <a href="https://sepolia.basescan.org/address/0x46880b404CD35c165EDdefF7421019F8dD25F4Ad" target="_blank" rel="noopener">Basescan</a>.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
